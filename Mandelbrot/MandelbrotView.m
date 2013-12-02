@@ -15,7 +15,6 @@
     CGPoint _translate;
     CGRect _originalScale;
     unsigned int _maxIteration;
-    bool _isCalculating;
 }
 
 @end
@@ -45,7 +44,6 @@
     _location.size.height = self.frame.size.height* 3 / self.frame.size.width;
     _translate = CGPointZero;
     _maxIteration = 100;
-    _isCalculating = NO;
 }
 
 
@@ -72,8 +70,9 @@
 
 - (void)handleTapGesture:(UIGestureRecognizer *)aGestureRecognizer
 {
+    _originalScale = _location;
     CGPoint point = [aGestureRecognizer locationInView:self];
-    [self zoomWithScale:1.20 atPoint:point];
+    [self zoomWithScale:1.40 atPoint:point];
     [self setNeedsDisplay];
 }
 
@@ -101,10 +100,27 @@
 
 - (void)drawRect:(CGRect)rect
 {
-    if (_isCalculating == YES)
-        return;
-    _isCalculating = YES;
+    [self fillBuffer];
     CGContextRef context = UIGraphicsGetCurrentContext();
+    
+    CGColorSpaceRef colorSpace = CGColorSpaceCreateDeviceRGB();
+    CGContextRef bitmapContext = CGBitmapContextCreate(
+                                                           buffer,
+                                                           self.frame.size.width,
+                                                           self.frame.size.height,
+                                                           8,
+                                                           4 * self.frame.size.width,
+                                                           colorSpace,
+                                                           kCGImageAlphaNoneSkipLast);
+    CFRelease(colorSpace);
+    
+    CGImageRef image = CGBitmapContextCreateImage(bitmapContext);
+    CGContextDrawImage(context, self.bounds, image);
+    CGImageRelease(image);
+}
+
+- (void)fillBuffer
+{
     unsigned int width = self.frame.size.width;
     unsigned int height = self.frame.size.height;
     
@@ -135,25 +151,7 @@
                 buffer[i + j * (unsigned int)self.frame.size.width] = iteration * 8;
         }
     });
-    NSLog(@"Take %f m",CFAbsoluteTimeGetCurrent()- time);
-    
-    CGColorSpaceRef colorSpace = CGColorSpaceCreateDeviceRGB();
-    CGContextRef bitmapContext = CGBitmapContextCreate(
-                                                       buffer,
-                                                       self.frame.size.width,
-                                                       self.frame.size.height,
-                                                       8, // bitsPerComponent
-                                                       4 * self.frame.size.width, // bytesPerRow
-                                                       colorSpace,
-                                                       kCGImageAlphaNoneSkipLast);
-    CFRelease(colorSpace);
-    
-    CGImageRef image = CGBitmapContextCreateImage(bitmapContext);
-    
-    CGSize viewSize = self.bounds.size;
-    CGContextDrawImage(context, CGRectMake(0, 0, viewSize.width, viewSize.height), image);
-    CGImageRelease(image);
-    _isCalculating = NO;
+    NSLog(@"Took %f secondes",CFAbsoluteTimeGetCurrent()- time);
 }
          
 @end
